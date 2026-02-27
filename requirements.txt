@@ -3,3 +3,5 @@ ultralytics
 opencv-python-headless
 torch
 lap
+imageio
+imageio-ffmpeg

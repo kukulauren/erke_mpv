@@ -1,8 +1,12 @@
+import os
+
 import cv2
 import numpy as np
 from ultralytics import YOLO
 from collections import defaultdict
 import time
+import imageio
+import imageio_ffmpeg
 
 # === CONFIGURATION ===
 MODEL_PATH = "best.pt"
@@ -281,29 +285,32 @@ def process_video(model_path, video_path, output_path, conf_threshold):
 
     print("Opening video...")
     cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise RuntimeError(f"Failed to open video file: {video_path}")
 
     fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-    out = cv2.VideoWriter('output.avi', fourcc, fps, (width, height))
+    # Write to a temp file first, then re-encode
+    temp_output = output_path.replace(".mp4", "_raw.mp4")
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(temp_output, fourcc, fps, (width, height))
     if not out.isOpened():
-        raise RuntimeError("VideoWriter failed to open. Check codec & headless environment.")
-        
-    analytics = RetailAnalytics(fps=fps)
+        raise RuntimeError(f"Failed to open VideoWriter for {temp_output}")
 
+    analytics = RetailAnalytics(fps=fps)
     frame_count = 0
     start_time = time.time()
 
     print(f"Processing {total_frames} frames at {fps} FPS...")
-    print("="*60)
+    print("=" * 60)
 
     while True:
         ret, frame = cap.read()
         if not ret:
-            break
+            break  # End of video, not an error
 
         frame_count += 1
         current_time = frame_count / fps
@@ -466,21 +473,26 @@ def process_video(model_path, video_path, output_path, conf_threshold):
 
     cap.release()
     out.release()
-    time.sleep(1)
 
-    processing_time = time.time() - start_time
+    reader = imageio.get_reader(temp_output)
+    fps_meta = reader.get_meta_data().get('fps', fps)
 
-    # Report
-    print("\n" + "="*60)
-    print("📊 RETAIL ANALYTICS REPORT")
-    print("="*60)
-    print(f"\n📋 SUMMARY:")
-    print(f"  • Total Items Scanned: {len(analytics.scanned_items)}")
-    print(f"  • Total Payments: {len(analytics.completed_payments)}")
-    print(f"  • Customers Served: {len(analytics.customer_visits)}")
-    print(f"\n📁 Output: {output_path}")
-    print(f"⏱️ Time: {processing_time:.1f}s")
-    print("="*60)
+    writer = imageio.get_writer(
+        output_path,
+        fps=fps_meta,
+        codec='libx264',
+        pixelformat='yuv420p',
+        quality=None,
+        ffmpeg_params=['-crf', '23', '-preset', 'fast']
+    )
+
+    for frame in reader:
+        writer.append_data(frame)
+
+    reader.close()
+    writer.close()
+    os.remove(temp_output)
+    print("Re-encoding complete.")
 
 
 if __name__ == "__main__":
