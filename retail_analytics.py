@@ -287,9 +287,11 @@ def process_video(model_path, video_path, output_path, conf_threshold):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    fourcc = cv2.VideoWriter_fourcc(*'avc1')
-    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+    out = cv2.VideoWriter('output.avi', fourcc, fps, (width, height))
+    if not out.isOpened():
+        raise RuntimeError("VideoWriter failed to open. Check codec & headless environment.")
+        
     analytics = RetailAnalytics(fps=fps)
 
     frame_count = 0
