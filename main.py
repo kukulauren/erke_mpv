@@ -5,7 +5,7 @@ from retail_analytics import process_video
 
 # Page config
 st.set_page_config(page_title="YOLO Video Detection", layout="wide")
-st.title("YOLO Video Detection")
+st.title("I CAN SEE")
 
 # Session state
 if 'video_path' not in st.session_state:
