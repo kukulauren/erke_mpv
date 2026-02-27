@@ -464,7 +464,6 @@ def process_video(model_path, video_path, output_path, conf_threshold):
 
     cap.release()
     out.release()
-    cv2.destroyAllWindows()
     time.sleep(1)
 
     processing_time = time.time() - start_time
